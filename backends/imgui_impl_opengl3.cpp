@@ -177,7 +177,7 @@
 #endif
 
 // Desktop GL 2.0+ has glPolygonMode() which GL ES and WebGL don't have.
-#ifdef GL_POLYGON_MODE
+#if !defined(IMGUI_IMPL_OPENGL_ES2) && !defined(IMGUI_IMPL_OPENGL_ES3) && defined(GL_POLYGON_MODE)
 #define IMGUI_IMPL_HAS_POLYGON_MODE
 #endif
 
