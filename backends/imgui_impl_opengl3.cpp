@@ -197,7 +197,7 @@
 #endif
 
 // Desktop GL use extension detection
-#if !defined(IMGUI_IMPL_OPENGL_ES2) && !defined(IMGUI_IMPL_OPENGL_ES3)
+#if !defined(IMGUI_IMPL_OPENGL_ES2)
 #define IMGUI_IMPL_OPENGL_MAY_HAVE_EXTENSIONS
 #endif
 
