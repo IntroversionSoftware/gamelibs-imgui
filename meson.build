@@ -4,6 +4,7 @@ compiler = meson.get_compiler('cpp')
 link_deps = [
     dependency('sdl2'),
     dependency('glad'),
+    dependency('stb'),
 ]
 
 incdirs = ['.', 'backends']
