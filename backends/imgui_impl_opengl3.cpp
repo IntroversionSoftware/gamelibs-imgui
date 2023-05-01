@@ -313,9 +313,14 @@ bool    ImGui_ImplOpenGL3_Init(const char* glsl_version)
         sscanf(gl_version_str, "%d.%d", &major, &minor); // Query GL_VERSION in desktop GL 2.x, the string will start with "<major>.<minor>"
     bd->GlVersion = (GLuint)(major * 100 + minor * 10);
 #if defined(GL_CONTEXT_PROFILE_MASK)
-    if (bd->GlVersion >= 320)
-        glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &bd->GlProfileMask);
-    bd->GlProfileIsCompat = (bd->GlProfileMask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT) != 0;
+    if (GLAD_GL_ES_VERSION_3_0) {
+        bd->GlProfileMask = GL_CONTEXT_CORE_PROFILE_BIT;
+        bd->GlProfileIsCompat = false;
+    } else {
+        if (bd->GlVersion >= 320)
+            glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &bd->GlProfileMask);
+        bd->GlProfileIsCompat = (bd->GlProfileMask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT) != 0;
+    }
 #endif
 
 #if defined(IMGUI_IMPL_OPENGL_ES3)
