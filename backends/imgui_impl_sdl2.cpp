@@ -504,6 +504,11 @@ bool ImGui_ImplSDL2_InitForOther(SDL_Window* window)
 void ImGui_ImplSDL2_Shutdown()
 {
     ImGui_ImplSDL2_Data* bd = ImGui_ImplSDL2_GetBackendData();
+
+    // Idempotency: allow destruction even without existing instance
+    if (bd == nullptr)
+        return;
+
     IM_ASSERT(bd != nullptr && "No platform backend to shutdown, or already shutdown?");
     ImGuiIO& io = ImGui::GetIO();
 
