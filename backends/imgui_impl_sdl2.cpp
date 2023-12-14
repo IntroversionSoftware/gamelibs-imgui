@@ -579,6 +579,11 @@ static void ImGui_ImplSDL2_CloseGamepads();
 void ImGui_ImplSDL2_Shutdown()
 {
     ImGui_ImplSDL2_Data* bd = ImGui_ImplSDL2_GetBackendData();
+
+    // Idempotency: allow destruction even without existing instance
+    if (bd == nullptr)
+        return;
+
     IM_ASSERT(bd != nullptr && "No platform backend to shutdown, or already shutdown?");
     ImGuiIO& io = ImGui::GetIO();
 

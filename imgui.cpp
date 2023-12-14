@@ -3857,6 +3857,11 @@ void ImGui::DestroyContext(ImGuiContext* ctx)
     ImGuiContext* prev_ctx = GetCurrentContext();
     if (ctx == NULL) //-V1051
         ctx = prev_ctx;
+
+    // Idempotency: allow destruction even without existing context
+    if (!ctx)
+        return;
+
     SetCurrentContext(ctx);
     Shutdown();
     SetCurrentContext((prev_ctx != ctx) ? prev_ctx : NULL);
