@@ -316,6 +316,7 @@ bool    ImGui_ImplOpenGL3_Init(const char* glsl_version)
     if (GLAD_GL_ES_VERSION_3_0) {
         bd->GlProfileMask = GL_CONTEXT_CORE_PROFILE_BIT;
         bd->GlProfileIsCompat = false;
+        bd->GlProfileIsES3 = true;
     } else {
         if (bd->GlVersion >= 320)
             glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &bd->GlProfileMask);
