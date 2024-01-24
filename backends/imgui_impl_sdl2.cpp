@@ -908,8 +908,11 @@ static void ImGui_ImplSDL2_GetWindowSizeAndFramebufferScale(SDL_Window* window, 
     SDL_GetWindowSize(window, &w, &h);
     if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)
         w = h = 0;
-    if (renderer != nullptr)
+    if (false);
+#ifndef SDL_RENDER_DISABLED
+    else if (renderer != nullptr)
         SDL_GetRendererOutputSize(renderer, &display_w, &display_h);
+#endif
 #if SDL_HAS_VULKAN
     else if (SDL_GetWindowFlags(window) & SDL_WINDOW_VULKAN)
         SDL_Vulkan_GetDrawableSize(window, &display_w, &display_h);
