@@ -773,8 +773,11 @@ void ImGui_ImplSDL2_NewFrame()
     SDL_GetWindowSize(bd->Window, &w, &h);
     if (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_MINIMIZED)
         w = h = 0;
-    if (bd->Renderer != nullptr)
+    if (false);
+#ifndef SDL_RENDER_DISABLED
+    else if (bd->Renderer != nullptr)
         SDL_GetRendererOutputSize(bd->Renderer, &display_w, &display_h);
+#endif
 #if SDL_HAS_VULKAN
     else if (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_VULKAN)
         SDL_Vulkan_GetDrawableSize(bd->Window, &display_w, &display_h);
