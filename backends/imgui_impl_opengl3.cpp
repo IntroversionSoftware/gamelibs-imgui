@@ -252,6 +252,7 @@ struct ImGui_ImplOpenGL3_Data
     GLuint          AttribLocationVtxPos;    // Vertex attributes location
     GLuint          AttribLocationVtxUV;
     GLuint          AttribLocationVtxColor;
+    unsigned int    VaoHandle;
     unsigned int    VboHandle, ElementsHandle;
     GLsizeiptr      VertexBufferSize;
     GLsizeiptr      IndexBufferSize;
@@ -259,6 +260,7 @@ struct ImGui_ImplOpenGL3_Data
     bool            HasBindSampler;
     bool            HasClipOrigin;
     bool            UseBufferSubData;
+    bool            SingleContext;
 #ifdef IMGUI_IMPL_OPENGL_MAY_HAVE_BIND_SAMPLER
     GLuint          TexSamplers[2];         // Used if HasBindSimpler. (0=linear, 1=nearest)
 #endif
@@ -338,7 +340,7 @@ void    ImGui_ImplOpenGL3_NewFrame()
             IM_ASSERT(0 && "ImGui_ImplOpenGL3_CreateDeviceObjects() failed!");
 }
 
-static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, ImGui_ImplOpenGL3_RenderState* render_state, int fb_width, int fb_height, GLuint vertex_array_object)
+static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, ImGui_ImplOpenGL3_RenderState* render_state, int fb_width, int fb_height)
 {
     ImGui_ImplOpenGL3_Data* bd = ImGui_ImplOpenGL3_GetBackendData();
 
@@ -402,20 +404,30 @@ static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, ImGui_Impl
     }
 #endif
 
-    (void)vertex_array_object;
 #ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-    glBindVertexArray(vertex_array_object);
+    if (bd->VaoHandle) {
+        glBindVertexArray(bd->VaoHandle);
+
+        // Bind vertex/index buffers and setup attributes for ImDrawVert
+        GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, bd->VboHandle));
+        GL_CALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bd->ElementsHandle));
+    } else {
+        GL_CALL(glGenVertexArrays(1, &bd->VaoHandle));
+        glBindVertexArray(bd->VaoHandle);
 #endif
 
-    // Bind vertex/index buffers and setup attributes for ImDrawVert
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, bd->VboHandle));
-    GL_CALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bd->ElementsHandle));
-    GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxPos));
-    GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxUV));
-    GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxColor));
-    GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxPos,   2, GL_FLOAT,         GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, pos)));
-    GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxUV,    2, GL_FLOAT,         GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, uv)));
-    GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, col)));
+        // Bind vertex/index buffers and setup attributes for ImDrawVert
+        GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, bd->VboHandle));
+        GL_CALL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bd->ElementsHandle));
+        GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxPos));
+        GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxUV));
+        GL_CALL(glEnableVertexAttribArray(bd->AttribLocationVtxColor));
+        GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxPos, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid *)offsetof(ImDrawVert, pos)));
+        GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxUV, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid *)offsetof(ImDrawVert, uv)));
+        GL_CALL(glVertexAttribPointer(bd->AttribLocationVtxColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid *)offsetof(ImDrawVert, col)));
+#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
+    }
+#endif
 }
 
 // Draw callbacks
@@ -488,9 +500,9 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     GLuint last_sampler; if (bd->HasBindSampler) { glGetIntegerv(GL_SAMPLER_BINDING, (GLint*)&last_sampler); } else { last_sampler = 0; }
 #endif
     GLuint last_array_buffer; glGetIntegerv(GL_ARRAY_BUFFER_BINDING, (GLint*)&last_array_buffer);
+    GLuint last_element_array_buffer; glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, (GLint *)&last_element_array_buffer);
 #ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     // This is part of VAO on OpenGL 3.0+ and OpenGL ES 3.0+.
-    GLint last_element_array_buffer; glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &last_element_array_buffer);
     ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_pos; last_vtx_attrib_state_pos.GetState(bd->AttribLocationVtxPos);
     ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_uv; last_vtx_attrib_state_uv.GetState(bd->AttribLocationVtxUV);
     ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_color; last_vtx_attrib_state_color.GetState(bd->AttribLocationVtxColor);
@@ -521,11 +533,6 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     // Setup desired GL state
     // Recreate the VAO every time (this is to easily allow multiple GL contexts to be rendered to. VAO are not shared among GL contexts)
     // The renderer would actually work without any VAO bound, but then our VertexAttrib calls would overwrite the default one currently bound.
-    GLuint vertex_array_object = 0;
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-    GL_CALL(glGenVertexArrays(1, &vertex_array_object));
-#endif
-
     // Setup render state structure (for callbacks and custom texture bindings)
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     ImGui_ImplOpenGL3_RenderState render_state;
@@ -535,7 +542,7 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     render_state.CurrentTexParameterFilter = 0;
     platform_io.Renderer_RenderState = &render_state;
 
-    ImGui_ImplOpenGL3_SetupRenderState(draw_data, &render_state, fb_width, fb_height, vertex_array_object);
+    ImGui_ImplOpenGL3_SetupRenderState(draw_data, &render_state, fb_width, fb_height);
 
     // Will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
@@ -582,7 +589,7 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 if (pcmd->UserCallback == ImGui_ImplOpenGL3_DrawCallback_ResetRenderState)
-                    ImGui_ImplOpenGL3_SetupRenderState(draw_data, &render_state, fb_width, fb_height, vertex_array_object);
+                    ImGui_ImplOpenGL3_SetupRenderState(draw_data, &render_state, fb_width, fb_height);
                 else
                     pcmd->UserCallback(draw_list, pcmd);
             }
@@ -631,9 +638,12 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     }
     platform_io.Renderer_RenderState = nullptr;
 
-    // Destroy the temporary VAO
 #ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-    GL_CALL(glDeleteVertexArrays(1, &vertex_array_object));
+    if (!bd->SingleContext) {
+        // Destroy the temporary VAO
+        GL_CALL(glDeleteVertexArrays(1, &bd->VaoHandle));
+        bd->VaoHandle = 0;
+    }
 #endif
 
     // Restore modified GL state
@@ -649,8 +659,8 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     glBindVertexArray(last_vertex_array_object);
 #endif
     glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
-#ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, last_element_array_buffer);
+#ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     last_vtx_attrib_state_pos.SetState(bd->AttribLocationVtxPos);
     last_vtx_attrib_state_uv.SetState(bd->AttribLocationVtxUV);
     last_vtx_attrib_state_color.SetState(bd->AttribLocationVtxColor);
@@ -994,6 +1004,9 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     bd->AttribLocationVtxUV = (GLuint)glGetAttribLocation(bd->ShaderHandle, "UV");
     bd->AttribLocationVtxColor = (GLuint)glGetAttribLocation(bd->ShaderHandle, "Color");
 
+    // Generate the VAO on first use, if we're in single-context mode
+    bd->VaoHandle = 0;
+
     // Create buffers
     glGenBuffers(1, &bd->VboHandle);
     glGenBuffers(1, &bd->ElementsHandle);
@@ -1032,6 +1045,7 @@ void    ImGui_ImplOpenGL3_DestroyDeviceObjects()
 #ifdef IMGUI_IMPL_OPENGL_MAY_HAVE_BIND_SAMPLER
     if (bd->TexSamplers[0]) { glDeleteSamplers(2, &bd->TexSamplers[0]); bd->TexSamplers[0] = bd->TexSamplers[1] = 0; }
 #endif
+    if (bd->VaoHandle)      { glDeleteVertexArrays(1, &bd->VaoHandle); bd->VaoHandle = 0; }
     if (bd->VboHandle)      { glDeleteBuffers(1, &bd->VboHandle); bd->VboHandle = 0; }
     if (bd->ElementsHandle) { glDeleteBuffers(1, &bd->ElementsHandle); bd->ElementsHandle = 0; }
     if (bd->ShaderHandle)   { glDeleteProgram(bd->ShaderHandle); bd->ShaderHandle = 0; }
@@ -1087,6 +1101,10 @@ bool    ImGui_ImplOpenGL3_Init(const char* glsl_version)
         glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &bd->GlProfileMask);
     bd->GlProfileIsCompat = (bd->GlProfileMask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT) != 0;
 #endif
+
+    // If we are only going to use a single context, we can avoid the overhead
+    // of re-creating the VAO every time.
+    bd->SingleContext = true;
 
     bd->UseBufferSubData = false;
     /*
