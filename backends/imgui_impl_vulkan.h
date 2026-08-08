@@ -65,6 +65,14 @@
 #endif
 
 // Vulkan includes
+#ifdef IMGUI_IMPL_VULKAN_USE_GLOAM
+#include <gloam/vk.h>
+// gloam spells enum sentinels <NAME>_<VENDOR>_MAX_ENUM instead of the
+// Khronos <NAME>_MAX_ENUM_<VENDOR> convention.
+#ifndef VK_PRESENT_MODE_MAX_ENUM_KHR
+#define VK_PRESENT_MODE_MAX_ENUM_KHR VK_PRESENT_MODE_KHR_MAX_ENUM
+#endif
+#else
 #ifdef IMGUI_IMPL_VULKAN_USE_VOLK
 #ifdef IMGUI_IMPL_VULKAN_VOLK_FILENAME
 #include IMGUI_IMPL_VULKAN_VOLK_FILENAME
@@ -73,6 +81,7 @@
 #endif
 #else
 #include <vulkan/vulkan.h>
+#endif
 #endif
 #if defined(VK_VERSION_1_3) || defined(VK_KHR_dynamic_rendering)
 #define IMGUI_IMPL_VULKAN_HAS_DYNAMIC_RENDERING
