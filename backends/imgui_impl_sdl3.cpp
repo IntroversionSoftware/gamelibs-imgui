@@ -208,7 +208,8 @@ static void ImGui_ImplSDL3_UpdateIme()
     // Stop previous input
     if ((!(data->WantVisible || data->WantTextInput) || bd->ImeWindow != window) && bd->ImeWindow != nullptr)
     {
-        SDL_StopTextInput(bd->ImeWindow);
+        SDL_RunOnMainThread([](void* w) { SDL_StopTextInput(static_cast<SDL_Window*>(w)); },
+                            bd->ImeWindow, true);
         bd->ImeWindow = nullptr;
     }
     if ((!bd->ImeDirty && bd->ImeWindow == window) || (window == nullptr))
@@ -229,8 +230,10 @@ static void ImGui_ImplSDL3_UpdateIme()
         SDL_SetTextInputArea(window, &r, 0);
         bd->ImeWindow = window;
     }
-    if (!SDL_TextInputActive(window) && (data->WantVisible || data->WantTextInput))
-        SDL_StartTextInput(window);
+    if (!SDL_TextInputActive(window) && (data->WantVisible || data->WantTextInput)) {
+        SDL_RunOnMainThread([](void* window) { SDL_StartTextInput(static_cast<SDL_Window*>(window)); },
+                            window, true);
+    }
 }
 
 // Not static to allow third-party code to use that if they want to (but undocumented)
